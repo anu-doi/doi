@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response type="success">
+	<responsecode>MT090</responsecode>
+	<message>The rocket is ready to blast off -- all systems are go!</message>
+	<doi></doi>
+	<url></url>
+	<app_id></app_id>
+	<verbosemessage>(took 1565ms)</verbosemessage>
+</response>
