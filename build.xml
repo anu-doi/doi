@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="doi" default="help">
+	
+	<property file="build.properties"></property>
+	
+	<target name="help">
+		<echo>USAGE: ant install</echo>
+	</target>
+
+	<target name="install">
+		<echo>Installing to ${install.dir}...</echo>
+		
+		<copy todir="${install.dir}/">
+			<fileset file="${basedir}/doi-cmd/target/doi-cmd-*.jar"></fileset>
+		</copy>
+		
+		<copy todir="${install.dir}/lib">
+			<fileset dir="${basedir}/doi-cmd/target/lib" ></fileset>
+		</copy>
+	</target>
+</project>
