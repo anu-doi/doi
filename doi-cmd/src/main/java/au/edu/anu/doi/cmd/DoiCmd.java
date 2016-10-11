@@ -33,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Objects;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -78,12 +79,11 @@ public class DoiCmd {
 		if (args.length == 0 || cmdLine.hasOption("h")) {
 			dispUsageHelp();
 		} else {
-			// read properties
-			if (!cmdLine.hasOption("config")) {
+			DoiConfig doiConfig = readConfig();
+			if (doiConfig == null) {
 				dispUsageHelp();
 				return;
 			}
-			DoiConfig doiConfig = readConfig();
 
 			// create DOI Service client
 			Client client = ClientBuilder.newClient();
@@ -243,10 +243,22 @@ public class DoiCmd {
 	}
 
 	private DoiConfigFile readConfig() throws DoiCmdException {
-		File configFile = new File(cmdLine.getOptionValue("config"));
+		// check for config file in conf folder
+		String userDir = System.getProperty("user.dir");
+		Path configFilepath = Paths.get(userDir, "conf/doi.cfg");
+		
+		// if conf file doesn't exist in conf folder, see if one specified as command line argument
+		if (!Files.isRegularFile(configFilepath)) {
+			configFilepath = null;
+		}
+		if (cmdLine.getOptionValue("config") != null) {
+			configFilepath = Paths.get(cmdLine.getOptionValue("config"));
+		}
+		
 		DoiConfigFile doiConfigFile;
+		Objects.requireNonNull(configFilepath, "Unable to find configuration file.");
 		try {
-			doiConfigFile = new DoiConfigFile(configFile);
+			doiConfigFile = new DoiConfigFile(configFilepath.toFile());
 		} catch (IOException e) {
 			throw new DoiCmdException(e);
 		}
