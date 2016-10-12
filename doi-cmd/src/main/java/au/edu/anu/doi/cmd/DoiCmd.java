@@ -31,17 +31,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
-import java.util.Map.Entry;
 import java.util.Objects;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.ClientRequestContext;
-import javax.ws.rs.client.ClientRequestFilter;
-import javax.ws.rs.client.ClientResponseContext;
-import javax.ws.rs.client.ClientResponseFilter;
-import javax.ws.rs.core.MultivaluedMap;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -76,7 +69,10 @@ public class DoiCmd {
 		options = createOptions();
 		cmdLine = parseCommandLine(options, args);
 
-		if (args.length == 0 || cmdLine.hasOption("h")) {
+		if (args.length == 0) {
+			print("No command line parameters specified.");
+			dispUsageHelp();
+		} else if (cmdLine.hasOption("h")) {
 			dispUsageHelp();
 		} else {
 			DoiConfig doiConfig = readConfig();
@@ -110,7 +106,7 @@ public class DoiCmd {
 	private void execGetServiceStatus() throws DoiCmdException {
 		try {
 			DoiResponse serviceStatusResp = doiSvc.getServiceStatus();
-			System.out.println(serviceStatusResp);
+			print(serviceStatusResp.toString());
 		} catch (DoiException e) {
 			throw new DoiCmdException(e);
 		}
@@ -118,6 +114,7 @@ public class DoiCmd {
 
 	private void execGetMetadata() throws DoiCmdException {
 		if (!cmdLine.hasOption("doi")) {
+			print("DOI not provided.");
 			dispUsageHelp();
 			return;
 		}
@@ -133,7 +130,7 @@ public class DoiCmd {
 					metadataWriter.write(serviceStatusResp);
 				}
 			} else {
-				System.out.println(serviceStatusResp);
+				print(serviceStatusResp);
 			}
 		} catch (DoiException | IOException e) {
 			throw new DoiCmdException(e);
@@ -143,6 +140,7 @@ public class DoiCmd {
 	private void execMint() throws DoiCmdException {
 		// url that doi will resolve to and metadata for that doi are mandatory
 		if (!cmdLine.hasOption("url") || !cmdLine.hasOption("file")) {
+			print("Both URL and Metadata must be provided");
 			dispUsageHelp();
 			return;
 		}
@@ -188,12 +186,14 @@ public class DoiCmd {
 	 */
 	private void execUpdate() throws DoiCmdException {
 		if (!cmdLine.hasOption("doi")) {
+			print("DOI not provided.");
 			dispUsageHelp();
 			return;
 		}
 
-		// an update requires either a metadata update, a url update or both
-		if (!cmdLine.hasOption("file") && cmdLine.hasOption("url")) {
+		// an update requires a metadata update, a url update or both
+		if (!(cmdLine.hasOption("file") || cmdLine.hasOption("url"))) {
+			print("New URL, new metadata or both must be provided");
 			dispUsageHelp();
 			return;
 		}
@@ -201,8 +201,9 @@ public class DoiCmd {
 		String doi = cmdLine.getOptionValue("doi");
 		String doiUrl = cmdLine.getOptionValue("url", null);
 		String metadataFile = cmdLine.getOptionValue("file", null);
-		StringBuilder resourceDoc = new StringBuilder();
+		String resourceDoc = null;
 		if (metadataFile != null) {
+			StringBuilder resourceDocSb = new StringBuilder();
 			BufferedReader metadataReader;
 			try {
 				if (!metadataFile.equals("-")) {
@@ -216,7 +217,7 @@ public class DoiCmd {
 				char[] buffer = new char[8192];
 				for (int nCharsRead = metadataReader.read(buffer); nCharsRead != -1; nCharsRead = metadataReader
 						.read(buffer)) {
-					resourceDoc.append(buffer, 0, nCharsRead);
+					resourceDocSb.append(buffer, 0, nCharsRead);
 				}
 
 				// close stream if non-file
@@ -224,10 +225,16 @@ public class DoiCmd {
 					IOUtils.closeQuietly(metadataReader);
 				}
 				
-				doiSvc.update(doi, doiUrl, resourceDoc.toString());
-			} catch (IOException | DoiException e) {
+				resourceDoc = resourceDocSb.toString();
+			} catch (IOException e) {
 				throw new DoiCmdException(e);
 			}
+		}
+		
+		try {
+			doiSvc.update(doi, doiUrl, resourceDoc);
+		} catch (DoiException e) {
+			throw new DoiCmdException(e);
 		}
 
 	}
@@ -304,38 +311,8 @@ public class DoiCmd {
 		return options;
 	}
 	
-	private final class HttpLoggingFilter implements ClientRequestFilter, ClientResponseFilter {
-
-		@Override
-		public void filter(ClientRequestContext requestContext) throws IOException {
-			// request method and url
-			System.out.printf("> %s %s", requestContext.getMethod(), requestContext.getUri().toString());
-			System.out.println();
-			
-			// http headers
-			MultivaluedMap<String,String> headers = requestContext.getStringHeaders();
-			for (Entry<String, List<String>> header : headers.entrySet()) {
-				for (String value : header.getValue()) {
-					System.out.printf("> %s: %s", header.getKey(), value);
-					System.out.println();
-				}
-			}
-			
-		}
-
-		@Override
-		public void filter(ClientRequestContext requestContext, ClientResponseContext responseContext)
-				throws IOException {
-			// http headers
-			MultivaluedMap<String,String> headers = responseContext.getHeaders();
-			for (Entry<String, List<String>> header : headers.entrySet()) {
-				for (String value : header.getValue()) {
-					System.out.println(String.format("< %s: %s", header.getKey(), value));
-				}
-			}
-			
-			
-		}
-		
+	private void print(String msg, String... args) {
+		System.out.format(msg, (Object[]) args);
+		System.out.println();
 	}
 }
