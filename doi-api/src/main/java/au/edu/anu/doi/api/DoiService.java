@@ -122,7 +122,7 @@ public class DoiService {
 		
 		// create doi service endpoint uri
 		URI doiMintUri = dspUriBuilder.getMintDoiUri(doiUrl).build();
-		LOGGER.debug("Minting DOI at {} with metadata={}", doiMintUri.toString(), resourceDoc);
+		LOGGER.debug("Minting DOI at {} with url={};metadata={}", doiMintUri.toString(), doiUrl, resourceDoc);
 
 		// send http post request
 		Entity<Form> resourceDocEntity = prepareEntityForm(resourceDoc);
@@ -143,7 +143,7 @@ public class DoiService {
 		
 		// create doi service endpoint uri
 		URI doiUpdateUri = dspUriBuilder.getUpdateDoiUri(doi, doiUrl).build();
-		LOGGER.debug("Updating DOI {} at {} with xml [{}]", doi, doiUpdateUri.toString(), resourceDoc);
+		LOGGER.debug("Updating DOI at {} with doi={};url={};xml={}", doiUpdateUri.toString(), doi, doiUrl, resourceDoc);
 		
 		// submit http post request
 		Entity<Form> resourceDocEntity = prepareEntityForm(resourceDoc);
@@ -242,7 +242,9 @@ public class DoiService {
 
 	private Entity<Form> prepareEntityForm(String resourceDoc) {
 		Form form = new Form();
-		form.param("xml", resourceDoc);
+		if (resourceDoc != null) {
+			form.param("xml", resourceDoc);
+		}
 		Entity<Form> resourceDocEntity = Entity.entity(form, MediaType.APPLICATION_FORM_URLENCODED_TYPE);
 		return resourceDocEntity;
 	}
