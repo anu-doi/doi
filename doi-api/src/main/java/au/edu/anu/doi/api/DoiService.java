@@ -21,20 +21,14 @@
 
 package au.edu.anu.doi.api;
 
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 
 import javax.ws.rs.client.Client;
-import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Form;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.xml.bind.JAXBException;
@@ -44,7 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import au.edu.anu.doi.api.config.DoiConfig;
 import au.edu.anu.doi.api.http.DoiHttpRequest;
-import au.edu.anu.doi.api.http.DoiHttpRequest.GetMetadataBuilder;
 import au.edu.anu.doi.api.http.DoiHttpRequest.UpdateDoiBuilder;
 import au.edu.anu.doi.api.response.DoiResponse;
 import au.edu.anu.doi.api.response.DoiResponseUnmarshaller;
@@ -70,8 +63,6 @@ public class DoiService {
 	private DoiConfig doiConfig;
 	private DoiResponseUnmarshaller doiRespUnmarshaller;
 	
-	private DoiServicePointUriBuilder dspUriBuilder;
-	
 	private List<DoiServiceEventListener> doiSvcEvtListeners = new ArrayList<>();
 	
 
@@ -83,7 +74,6 @@ public class DoiService {
 		this.doiConfig = doiConfig;
 		
 		this.doiRespUnmarshaller = new DoiResponseUnmarshaller();
-		this.dspUriBuilder = new DoiServicePointUriBuilder(this.doiConfig);
 	}
 	
 
