@@ -145,6 +145,25 @@ public class DoiHttpRequest {
 			}
 			return appId;
 		}
+		
+		protected void verifyNonZeroLength(String s) throws NullPointerException, IllegalArgumentException {
+			Objects.requireNonNull(s);
+			if (s.length() == 0) {
+				throw new IllegalArgumentException();
+			}
+		}
+		
+		protected boolean isNullOrZeroLength(String s) {
+			if (s == null) {
+				return true;
+			} else {
+				if (s.length() == 0) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+		}
 	}
 	
 	
@@ -176,9 +195,9 @@ public class DoiHttpRequest {
 	
 		public MintDoiBuilder(DoiConfig doiConfig, String url, String resourceDoc) {
 			super(doiConfig);
-			Objects.requireNonNull(url);
+			verifyNonZeroLength(url);
 			this.url = url;
-			Objects.requireNonNull(resourceDoc);
+			verifyNonZeroLength(resourceDoc);
 			this.resourceDoc = resourceDoc;
 		}
 	
@@ -215,7 +234,7 @@ public class DoiHttpRequest {
 	public static class UpdateDoiBuilder extends AbstractBuilder {
 		public UpdateDoiBuilder(DoiConfig doiConfig, String doi) {
 			super(doiConfig);
-			Objects.requireNonNull(doi);
+			verifyNonZeroLength(doi);
 			this.doi = doi;
 		}
 		
@@ -224,8 +243,8 @@ public class DoiHttpRequest {
 		public DoiHttpRequest build() {
 			DoiHttpRequest req = new DoiHttpRequest();
 
-			if (this.url == null && this.resourceDoc == null) {
-				throw new IllegalStateException(
+			if (isNullOrZeroLength(this.url) && isNullOrZeroLength(this.resourceDoc)) {
+				throw new IllegalArgumentException(
 						"At least one new URL or XML must be specified for a DOI Update request");
 			}
 
@@ -303,7 +322,7 @@ public class DoiHttpRequest {
 		
 		public GetMetadataBuilder(DoiConfig doiConfig, String doi) {
 			super(doiConfig);
-			Objects.requireNonNull(doi);
+			verifyNonZeroLength(doi);
 			this.doi = doi;
 		}
 

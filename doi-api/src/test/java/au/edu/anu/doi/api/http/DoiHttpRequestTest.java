@@ -200,7 +200,7 @@ public class DoiHttpRequestTest {
 	}
 	
 	
-	@Test(expected = IllegalStateException.class)
+	@Test(expected = IllegalArgumentException.class)
 	public void testUpdateWithoutUrlAndDoi() throws Exception {
 		httpRequest = new DoiHttpRequest.UpdateDoiBuilder(doiConfig, "10.5072/13/50639BFE25F18").build();
 	}

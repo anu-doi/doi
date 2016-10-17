@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import javax.ws.rs.client.Client;
@@ -42,6 +43,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import au.edu.anu.doi.api.config.DoiConfig;
+import au.edu.anu.doi.api.http.DoiHttpRequest;
+import au.edu.anu.doi.api.http.DoiHttpRequest.GetMetadataBuilder;
+import au.edu.anu.doi.api.http.DoiHttpRequest.UpdateDoiBuilder;
 import au.edu.anu.doi.api.response.DoiResponse;
 import au.edu.anu.doi.api.response.DoiResponseUnmarshaller;
 
@@ -84,75 +88,55 @@ public class DoiService {
 	
 
 	public DoiResponse getServiceStatus() throws DoiException {
-		// build uri
-		URI doiGetServiceStatusUri = dspUriBuilder.getServiceStatusUri().build();
-		LOGGER.debug("Getting DOI service status from {}", doiGetServiceStatusUri.toString());
-	
-		WebTarget target = client.target(doiGetServiceStatusUri);
-		Response respFromAnds = target.request(MediaType.APPLICATION_XML_TYPE).get();
-		
-		return processResponse(respFromAnds, "MT090");
+		try {
+			DoiHttpRequest httpReq = new DoiHttpRequest.ServiceStatusBuilder(doiConfig).build();
+			Response respFromAnds = submitRequest(httpReq);
+			return processResponse(respFromAnds, "MT090");
+		} catch (Exception e) {
+			throw new DoiException(e);
+		}
 	}
 
 	public String getMetadata(String doi) throws DoiException {
-		// validate
-		Objects.requireNonNull(doi);
-		
-		// build uri
-		URI doiGetMetadataUri = dspUriBuilder.getDoiMetadataUri(doi).build();
-		LOGGER.debug("Getting metadata for DOI {} from {}", doi, doiGetMetadataUri.toString());
-		
-		WebTarget target = client.target(doiGetMetadataUri);
-		Response respFromDoiSvc = target.request(MediaType.APPLICATION_XML_TYPE).get();
-		
-		// process response
-		String respBody = extractEntityAsString(respFromDoiSvc);
-		LOGGER.debug("DOI Get Metadata response:{}{}", System.lineSeparator(), respBody);
-		if (respFromDoiSvc.getStatus() != Status.OK.getStatusCode()) {
-			throw new DoiException("Unexpected HTTP Status: " + respFromDoiSvc.getStatus() + ":" + respBody);
+		try {
+			DoiHttpRequest httpReq = new DoiHttpRequest.GetMetadataBuilder(doiConfig, doi).build();
+			Response respFromAnds = submitRequest(httpReq);
+			String metadata = extractEntityAsString(respFromAnds);
+			LOGGER.debug("DOI Get Metadata response:{}{}", System.lineSeparator(), metadata);
+			respFromAnds.close();
+			return metadata;
+
+		} catch (Exception e) {
+			throw new DoiException(e);
 		}
-		respFromDoiSvc.close();
-		
-		return respBody;
 	}
-
+	
 	public DoiResponse mint(String doiUrl, String resourceDoc) throws DoiException {
-		Objects.requireNonNull(doiUrl);
-		Objects.requireNonNull(resourceDoc);
-		
-		// create doi service endpoint uri
-		URI doiMintUri = dspUriBuilder.getMintDoiUri(doiUrl).build();
-		LOGGER.debug("Minting DOI at {} with url={};metadata={}", doiMintUri.toString(), doiUrl, resourceDoc);
-
-		// send http post request
-		Entity<Form> resourceDocEntity = prepareEntityForm(resourceDoc);
-		Builder reqBuilder = client.target(doiMintUri).request(MediaType.APPLICATION_XML_TYPE);
-		reqBuilder = addSharedSecret(reqBuilder);
-		
-		Response respFromDoiSvc = reqBuilder.post(resourceDocEntity);
-		
-		return processResponse(respFromDoiSvc, "MT001");
+		try {
+			DoiHttpRequest httpReq = new DoiHttpRequest.MintDoiBuilder(doiConfig, doiUrl, resourceDoc).build();
+			Response respFromAnds = submitRequest(httpReq);
+			return processResponse(respFromAnds, "MT001");
+		} catch (Exception e) {
+			throw new DoiException(e);
+		}
 	}
 	
 	public DoiResponse update(String doi, String doiUrl, String resourceDoc) throws DoiException {
-		// validate
-		Objects.requireNonNull(doi);
-		if (Objects.isNull(doiUrl) && Objects.isNull(resourceDoc)) {
-			throw new NullPointerException("doiUrl and resourceDoc both cannot be null");
+		try {
+			UpdateDoiBuilder updateDoiBuilder = new DoiHttpRequest.UpdateDoiBuilder(doiConfig, doi);
+			if (doiUrl != null && doiUrl.length() > 0) {
+				updateDoiBuilder = updateDoiBuilder.newUrl(doiUrl);
+			}
+			if (resourceDoc != null && resourceDoc.length() > 0) {
+				updateDoiBuilder = updateDoiBuilder.newXml(resourceDoc);
+			}
+			DoiHttpRequest httpReq = updateDoiBuilder.build();
+			Response respFromAnds = submitRequest(httpReq);
+			return processResponse(respFromAnds, "MT002");
+		} catch (Exception e) {
+			throw new DoiException(e);
 		}
-		
-		// create doi service endpoint uri
-		URI doiUpdateUri = dspUriBuilder.getUpdateDoiUri(doi, doiUrl).build();
-		LOGGER.debug("Updating DOI at {} with doi={};url={};xml={}", doiUpdateUri.toString(), doi, doiUrl, resourceDoc);
-		
-		// submit http post request
-		Entity<Form> resourceDocEntity = prepareEntityForm(resourceDoc);
-		Builder reqBuilder = client.target(doiUpdateUri).request(MediaType.APPLICATION_XML_TYPE);
-		reqBuilder = addSharedSecret(reqBuilder);
-		
-		Response respFromDoiSvc = reqBuilder.post(resourceDocEntity);
 
-		return processResponse(respFromDoiSvc, "MT002");
 	}
 
 	public Response activate(String doi, String doiUrl) throws DoiException {
@@ -178,7 +162,6 @@ public class DoiService {
 	
 	public void addListener(DoiServiceEventListener listener) {
 		Objects.requireNonNull(listener);
-		
 		if (!doiSvcEvtListeners.contains(listener)) {
 			doiSvcEvtListeners.add(listener);
 		}
@@ -186,25 +169,24 @@ public class DoiService {
 	
 	public void removeListener(DoiServiceEventListener listener) {
 		Objects.requireNonNull(listener);
-		
 		doiSvcEvtListeners.remove(listener);
 	}
 	
-	private Builder addSharedSecret(Builder reqBuilder) {
-		// add auth header only if shared secret specified
-		if (doiConfig.getSharedSecret() != null && doiConfig.getSharedSecret().length() > 0) {
-			
-			String appId = doiConfig.getAppId();
-			if (doiConfig.useTestPrefix()) {
-				appId = String.format("TEST%s", appId);
+	private Response submitRequest(DoiHttpRequest httpRequest) {
+		// create WebTarget from URI
+		WebTarget webTarget = client.target(httpRequest.getUri());
+		// add http headers, if any
+		Builder builder = webTarget.request();
+		for (Entry<String, List<String>> headerEntry : httpRequest.getHeaders().entrySet()) {
+			for (String headerValue : headerEntry.getValue()) {
+				builder = builder.header(headerEntry.getKey(), headerValue);
 			}
-			String authValue = String.format("%s:%s", appId, doiConfig.getSharedSecret());
-			authValue = Base64.getEncoder().encodeToString(authValue.getBytes(StandardCharsets.UTF_8));
-			authValue = String.format("Basic %s", authValue);
-			reqBuilder = reqBuilder.header("Authorization", authValue);
 		}
-		return reqBuilder;
+		// submit request
+		Response httpResponse = builder.method(httpRequest.getMethod(), httpRequest.getEntity());
+		return httpResponse;
 	}
+
 
 	private DoiResponse processResponse(Response respFromDoiSvc, String expectedRespCode) throws DoiException {
 		Objects.requireNonNull(respFromDoiSvc);
@@ -238,15 +220,6 @@ public class DoiService {
 					doiResponse.getCode(), expectedRespCode, respBody));
 		}
 		return doiResponse;
-	}
-
-	private Entity<Form> prepareEntityForm(String resourceDoc) {
-		Form form = new Form();
-		if (resourceDoc != null) {
-			form.param("xml", resourceDoc);
-		}
-		Entity<Form> resourceDocEntity = Entity.entity(form, MediaType.APPLICATION_FORM_URLENCODED_TYPE);
-		return resourceDocEntity;
 	}
 
 	private DoiResponse unmarshallDoiResponse(String str) throws JAXBException {
