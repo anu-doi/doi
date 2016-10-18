@@ -75,12 +75,11 @@ public class DoiHttpRequest {
 	
 	@Override
 	public String toString() {
-		return String.format("method=%s;uri=%s;headers=%s;body=%s", this.getMethod(), this.getUri().toString(),
-				this.getHeaders(), this.getEntity().getEntity().asMap());
-
+		return String.format("DoiHttpRequest [method=%s, uri=%s, headers=%s, entity=%s]", method, uri, headers,
+				entity.getEntity().asMap());
 	}
 
-	
+
 	static abstract class AbstractBuilder {
 		
 		public enum ResponseType { JSON, XML, STRING;

@@ -189,9 +189,8 @@ public class DoiResponse {
 
 	@Override
 	public String toString() {
-		return MessageFormat
-				.format("DOI Service Response: type={0}, code={1}, message={2}, doi={3}, url={4}, app_id={5}, verbosemessage={6}.",
-						this.getType(), this.getCode(), this.getMessage(), this.getDoi(), this.getUrl(),
-						this.getAppId(), this.getVerboseMsg());
+		return String.format("DoiResponse [type=%s, code=%s, message=%s, doi=%s, url=%s, appId=%s, verboseMsg=%s]",
+				type, code, message, doi, url, appId, verboseMsg);
 	}
+
 }
