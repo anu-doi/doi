@@ -132,7 +132,7 @@ public class DoiResponse {
 	 * 
 	 * @return URL as String
 	 */
-	@XmlElement(name = "doi")
+	@XmlElement(name = "url")
 	public String getUrl() {
 		return url;
 	}
