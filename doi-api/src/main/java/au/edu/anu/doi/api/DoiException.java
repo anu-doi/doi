@@ -21,6 +21,8 @@
 
 package au.edu.anu.doi.api;
 
+import au.edu.anu.doi.api.response.DoiResponse;
+
 /**
  * This exception is thrown when a DOI request is unable to be processed or is processed with unexpected results.
  * 
@@ -29,18 +31,14 @@ package au.edu.anu.doi.api;
 public class DoiException extends Exception {
 	private static final long serialVersionUID = 1L;
 
+	private DoiResponse resp;
+	private String respStr;
+	
 	/**
 	 * @see {@link Exception#Exception()}
 	 */
 	public DoiException() {
 		super();
-	}
-
-	/**
-	 * @see {@link Exception#Exception(String, Throwable)}
-	 */
-	public DoiException(String message, Throwable cause) {
-		super(message, cause);
 	}
 
 	/**
@@ -56,4 +54,29 @@ public class DoiException extends Exception {
 	public DoiException(Throwable cause) {
 		super(cause);
 	}
+
+	/**
+	 * @see {@link Exception#Exception(String, Throwable)}
+	 */
+	public DoiException(String message, Throwable cause) {
+		super(message, cause);
+	}
+
+	public DoiResponse getResp() {
+		return resp;
+	}
+
+	public void setResp(DoiResponse resp) {
+		this.resp = resp;
+	}
+
+	public String getRespStr() {
+		return respStr;
+	}
+
+	public void setRespStr(String respStr) {
+		this.respStr = respStr;
+	}
+	
+	
 }

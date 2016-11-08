@@ -47,9 +47,9 @@ import au.edu.anu.doi.api.response.DoiResponseUnmarshaller;
  *
  */
 public class DoiService {
-	
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(DoiService.class);
-	
+
 	public enum ResponseFormat {
 		XML, JSON, STRING;
 
@@ -58,24 +58,22 @@ public class DoiService {
 			return super.toString().toLowerCase();
 		}
 	}
-	
+
 	private Client client;
 	private DoiConfig doiConfig;
 	private DoiResponseUnmarshaller doiRespUnmarshaller;
-	
+
 	private List<DoiServiceEventListener> doiSvcEvtListeners = new ArrayList<>();
-	
 
 	public DoiService(Client client, DoiConfig doiConfig) {
 		Objects.requireNonNull(client);
 		Objects.requireNonNull(doiConfig);
-		
+
 		this.client = client;
 		this.doiConfig = doiConfig;
-		
+
 		this.doiRespUnmarshaller = new DoiResponseUnmarshaller();
 	}
-	
 
 	public DoiResponse getServiceStatus() throws DoiException {
 		try {
@@ -100,7 +98,7 @@ public class DoiService {
 			throw new DoiException(e);
 		}
 	}
-	
+
 	public DoiResponse mint(String doiUrl, String resourceDoc) throws DoiException {
 		try {
 			DoiHttpRequest httpReq = new DoiHttpRequest.MintDoiBuilder(doiConfig, doiUrl, resourceDoc).build();
@@ -110,7 +108,7 @@ public class DoiService {
 			throw new DoiException(e);
 		}
 	}
-	
+
 	public DoiResponse update(String doi, String doiUrl, String resourceDoc) throws DoiException {
 		try {
 			UpdateDoiBuilder updateDoiBuilder = new DoiHttpRequest.UpdateDoiBuilder(doiConfig, doi);
@@ -131,37 +129,37 @@ public class DoiService {
 
 	public Response activate(String doi, String doiUrl) throws DoiException {
 		Response resp = null;
-		
+
 		// TODO
-		
+
 		return resp;
 	}
 
 	public Response deactivate(String doi, String doiUrl) throws DoiException {
 		Response resp = null;
-		
+
 		// TODO
-		
+
 		return resp;
 	}
-	
+
 	public String extractEntityAsString(Response resp) {
 		String doiResponseAsString = resp.readEntity(String.class);
 		return doiResponseAsString;
 	}
-	
+
 	public void addListener(DoiServiceEventListener listener) {
 		Objects.requireNonNull(listener);
 		if (!doiSvcEvtListeners.contains(listener)) {
 			doiSvcEvtListeners.add(listener);
 		}
 	}
-	
+
 	public void removeListener(DoiServiceEventListener listener) {
 		Objects.requireNonNull(listener);
 		doiSvcEvtListeners.remove(listener);
 	}
-	
+
 	private Response submitRequest(DoiHttpRequest httpRequest) {
 		// create WebTarget from URI
 		WebTarget webTarget = client.target(httpRequest.getUri());
@@ -177,7 +175,6 @@ public class DoiService {
 		return httpResponse;
 	}
 
-
 	private DoiResponse processResponse(Response respFromDoiSvc, String expectedRespCode) throws DoiException {
 		Objects.requireNonNull(respFromDoiSvc);
 		Objects.requireNonNull(expectedRespCode);
@@ -186,7 +183,10 @@ public class DoiService {
 		respFromDoiSvc.close();
 		LOGGER.debug("DOI Service response: {}", respBody);
 		if (respFromDoiSvc.getStatus() != Status.OK.getStatusCode()) {
-			throw new DoiException(String.format("Unexpected HTTP Status: %d [%s]", respFromDoiSvc.getStatus(), respBody));
+			DoiException doiException = new DoiException(
+					String.format("Unexpected HTTP Status: %d [%s]", respFromDoiSvc.getStatus(), respBody));
+			doiException.setRespStr(respBody);
+			throw doiException;
 		}
 
 		// unmarshall response body into a DoiResponse object
@@ -194,20 +194,29 @@ public class DoiService {
 		try {
 			doiResponse = unmarshallDoiResponse(respBody);
 		} catch (JAXBException e) {
-			throw new DoiException(String.format("Invalid response format: %s", respBody));
+			DoiException doiException = new DoiException(String.format("Invalid response format: %s", respBody));
+			doiException.setRespStr(respBody);
+			throw doiException;
 		}
 
 		// throw exception if response type is failure
-		if (!doiResponse.getType().equals("success"))
-		{
-			throw new DoiException(String.format("Response type failure: %s. Expected %s. Body: %s",
-					doiResponse.getCode(), expectedRespCode, respBody));
+		if (!doiResponse.getType().equals("success")) {
+			DoiException doiException = new DoiException(
+					String.format("Response type failure: %s. Expected %s. Body: %s", doiResponse.getCode(),
+							expectedRespCode, respBody));
+			doiException.setResp(doiResponse);
+			doiException.setRespStr(respBody);
+			throw doiException;
 		}
-		
+
 		// throw exception if the request failed.
 		if (!doiResponse.getCode().equals(expectedRespCode)) {
-			throw new DoiException(String.format("Unexpected response code: %s. Expected %s. Body: %s",
-					doiResponse.getCode(), expectedRespCode, respBody));
+			DoiException doiException = new DoiException(
+					String.format("Unexpected response code: %s. Expected %s. Body: %s", doiResponse.getCode(),
+							expectedRespCode, respBody));
+			doiException.setResp(doiResponse);
+			doiException.setRespStr(respBody);
+			throw doiException;
 		}
 		return doiResponse;
 	}
@@ -215,6 +224,5 @@ public class DoiService {
 	private DoiResponse unmarshallDoiResponse(String str) throws JAXBException {
 		return (DoiResponse) doiRespUnmarshaller.unmarshal(str);
 	}
-	
-	
+
 }
