@@ -65,7 +65,7 @@ public class DoiCmd {
 		this.args = args;
 	}
 
-	public void run() throws DoiCmdException {
+	public void run() {
 		options = createOptions();
 		cmdLine = parseCommandLine(options, args);
 
@@ -75,7 +75,12 @@ public class DoiCmd {
 		} else if (cmdLine.hasOption("h")) {
 			dispUsageHelp();
 		} else {
-			DoiConfig doiConfig = readConfig();
+			DoiConfig doiConfig = null;
+			try {
+				doiConfig = readConfig();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 			if (doiConfig == null) {
 				dispUsageHelp();
 				return;
@@ -103,16 +108,16 @@ public class DoiCmd {
 		}
 	}
 
-	private void execGetServiceStatus() throws DoiCmdException {
+	private void execGetServiceStatus() {
 		try {
 			DoiResponse serviceStatusResp = doiSvc.getServiceStatus();
-			print(serviceStatusResp.toString());
+			printResponse(serviceStatusResp);
 		} catch (DoiException e) {
-			throw new DoiCmdException(e);
+			handleDoiException(e);
 		}
 	}
 
-	private void execGetMetadata() throws DoiCmdException {
+	private void execGetMetadata() {
 		if (!cmdLine.hasOption("doi")) {
 			print("DOI not provided.");
 			dispUsageHelp();
@@ -132,12 +137,14 @@ public class DoiCmd {
 			} else {
 				print(serviceStatusResp);
 			}
-		} catch (DoiException | IOException e) {
-			throw new DoiCmdException(e);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (DoiException e) {
+			handleDoiException(e);
 		}
 	}
 
-	private void execMint() throws DoiCmdException {
+	private void execMint() {
 		// url that doi will resolve to and metadata for that doi are mandatory
 		if (!cmdLine.hasOption("url") || !cmdLine.hasOption("file")) {
 			print("Both URL and Metadata must be provided");
@@ -171,9 +178,12 @@ public class DoiCmd {
 					IOUtils.closeQuietly(metadataReader);
 				}
 				
-				doiSvc.mint(doiUrl, resourceDoc.toString());
-			} catch (IOException | DoiException e) {
-				throw new DoiCmdException(e);
+				DoiResponse mintResponse = doiSvc.mint(doiUrl, resourceDoc.toString());
+				printResponse(mintResponse);
+			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (DoiException e) {
+				handleDoiException(e);
 			}
 		}
 
@@ -184,7 +194,7 @@ public class DoiCmd {
 	 * 
 	 * @throws DoiCmdException
 	 */
-	private void execUpdate() throws DoiCmdException {
+	private void execUpdate() {
 		if (!cmdLine.hasOption("doi")) {
 			print("DOI not provided.");
 			dispUsageHelp();
@@ -227,14 +237,15 @@ public class DoiCmd {
 				
 				resourceDoc = resourceDocSb.toString();
 			} catch (IOException e) {
-				throw new DoiCmdException(e);
+				e.printStackTrace();
 			}
 		}
 		
 		try {
-			doiSvc.update(doi, doiUrl, resourceDoc);
+			DoiResponse updateResponse = doiSvc.update(doi, doiUrl, resourceDoc);
+			printResponse(updateResponse);
 		} catch (DoiException e) {
-			throw new DoiCmdException(e);
+			handleDoiException(e);
 		}
 
 	}
@@ -249,7 +260,7 @@ public class DoiCmd {
 		
 	}
 
-	private DoiConfigFile readConfig() throws DoiCmdException {
+	private DoiConfigFile readConfig() throws IOException {
 		// check for config file in conf folder
 		String userDir = System.getProperty("user.dir");
 		Path configFilepath = Paths.get(userDir, "conf/doi.cfg");
@@ -264,11 +275,7 @@ public class DoiCmd {
 		
 		DoiConfigFile doiConfigFile;
 		Objects.requireNonNull(configFilepath, "Unable to find configuration file.");
-		try {
-			doiConfigFile = new DoiConfigFile(configFilepath.toFile());
-		} catch (IOException e) {
-			throw new DoiCmdException(e);
-		}
+		doiConfigFile = new DoiConfigFile(configFilepath.toFile());
 		return doiConfigFile;
 	}
 
@@ -311,6 +318,25 @@ public class DoiCmd {
 		return options;
 	}
 	
+	private void handleDoiException(DoiException e) {
+		print(e.getMessage());
+		if (e.getResp() != null) {
+			printResponse(e.getResp());
+		} else if (e.getRespStr() != null) {
+			print(e.getRespStr());
+		}
+	}
+
+	private void printResponse(DoiResponse doiResp) {
+		print("Type: %s", doiResp.getType());
+		print("Code: %s", doiResp.getCode());
+		print("Message: %s", doiResp.getMessage());
+		print("DOI: %s", doiResp.getDoi());
+		print("URL: %s", doiResp.getUrl());
+		print("AppID: %s", doiResp.getAppId());
+		print("Verbose Message: %s", doiResp.getVerboseMsg());
+	}
+
 	private void print(String msg, String... args) {
 		System.out.format(msg, (Object[]) args);
 		System.out.println();
